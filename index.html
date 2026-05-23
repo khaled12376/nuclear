@@ -244,7 +244,7 @@
     box-shadow: 0 24px 64px rgba(0,0,0,0.6);
   }
   .modal-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
-  .modal h2 { font-size: 17px; font-weight: 600; color: var(--text-bright); margin-bottom: 12px; }
+  .modal h2 { font-size: 17px; font-weight: 600; color: var(--text-bright); margin-bottom: 12px; padding-right: 24px; }
   .modal p  { font-size: 13px; color: var(--text); line-height: 1.65; margin-bottom: 10px; }
   .modal ul { padding-left: 18px; }
   .modal li { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 4px; }
@@ -260,6 +260,29 @@
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--surface); border-radius: 3px; }
+
+  /* ─── Responsive Adjustments ─── */
+  @media (max-width: 900px) {
+    .node-grid[style], .node-grid-4, .node-grid-5, .twin-grid {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+    }
+    .safety-callout {
+      position: static;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 16px 12px; }
+    .node-grid, .node-grid[style], .node-grid-4, .node-grid-5, .twin-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .rps-row, .feedback-row {
+      flex-direction: column;
+    }
+    .modal { padding: 20px 24px; }
+  }
 
   /* ─── Print ─── */
   @media print {
