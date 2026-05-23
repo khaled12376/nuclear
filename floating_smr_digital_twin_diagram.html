@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Floating SMR Robotic System — Digital Twin Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0e14;
+    --bg2: #0f1520;
+    --bg3: #141d2b;
+    --surface: #1a2335;
+    --border: rgba(255,255,255,0.08);
+    --text: #c8d8f0;
+    --text-dim: #6b7f9a;
+    --text-bright: #e8f0ff;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+
+    --c-incore: #e85454;
+    --c-incore-bg: rgba(232,84,84,0.08);
+    --c-incore-border: rgba(232,84,84,0.3);
+    --c-excore: #e8a030;
+    --c-excore-bg: rgba(232,160,48,0.08);
+    --c-excore-border: rgba(232,160,48,0.3);
+    --c-process: #30c890;
+    --c-process-bg: rgba(48,200,144,0.08);
+    --c-process-border: rgba(48,200,144,0.3);
+    --c-marine: #4aabf0;
+    --c-marine-bg: rgba(74,171,240,0.08);
+    --c-marine-border: rgba(74,171,240,0.3);
+    --c-robot: #a07af0;
+    --c-robot-bg: rgba(160,122,240,0.08);
+    --c-robot-border: rgba(160,122,240,0.3);
+    --c-edge: #8898b0;
+    --c-edge-bg: rgba(136,152,176,0.08);
+    --c-edge-border: rgba(136,152,176,0.25);
+    --c-twin: #20d4a0;
+    --c-twin-bg: rgba(32,212,160,0.1);
+    --c-twin-border: rgba(32,212,160,0.4);
+    --c-cloud: #5070a0;
+    --c-cloud-bg: rgba(80,112,160,0.07);
+    --c-cloud-border: rgba(80,112,160,0.25);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+
+  body { min-height: 100vh; padding: 32px 24px 64px; max-width: 1100px; margin: 0 auto; }
+
+  /* ─── Header ─── */
+  .header { margin-bottom: 36px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+  .header-tag { font-family: var(--mono); font-size: 11px; color: var(--c-twin); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .header h1 { font-size: 22px; font-weight: 600; color: var(--text-bright); line-height: 1.3; margin-bottom: 6px; }
+  .header p { font-size: 13px; color: var(--text-dim); font-weight: 300; }
+
+  /* ─── Legend ─── */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 28px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ─── Zone ─── */
+  .zone { border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px dashed; position: relative; }
+  .zone-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; margin-bottom: 14px; opacity: 0.85; }
+
+  .zone-incore  { background: var(--c-incore-bg);  border-color: var(--c-incore-border);  }
+  .zone-incore  .zone-label { color: var(--c-incore); }
+  .zone-excore  { background: var(--c-excore-bg);  border-color: var(--c-excore-border);  }
+  .zone-excore  .zone-label { color: var(--c-excore); }
+  .zone-process { background: var(--c-process-bg); border-color: var(--c-process-border); }
+  .zone-process .zone-label { color: var(--c-process); }
+  .zone-marine  { background: var(--c-marine-bg);  border-color: var(--c-marine-border);  }
+  .zone-marine  .zone-label { color: var(--c-marine); }
+  .zone-robot   { background: var(--c-robot-bg);   border-color: var(--c-robot-border);   }
+  .zone-robot   .zone-label { color: var(--c-robot); }
+  .zone-edge    { background: var(--c-edge-bg);    border-color: var(--c-edge-border);    }
+  .zone-edge    .zone-label { color: var(--c-edge); }
+  .zone-twin    { background: var(--c-twin-bg);    border-color: var(--c-twin-border); border-style: solid; border-width: 1.5px; }
+  .zone-twin    .zone-label { color: var(--c-twin); font-size: 11px; }
+  .zone-cloud   { background: var(--c-cloud-bg);   border-color: var(--c-cloud-border);   }
+  .zone-cloud   .zone-label { color: var(--c-cloud); }
+
+  /* ─── Node grid ─── */
+  .node-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .node-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .node-grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+  /* ─── Sensor node ─── */
+  .node {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 13px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    position: relative;
+  }
+  .node:hover { transform: translateY(-1px); }
+  .node-title { font-size: 12px; font-weight: 500; color: var(--text-bright); margin-bottom: 3px; line-height: 1.35; }
+  .node-sub   { font-size: 11px; color: var(--text-dim); line-height: 1.35; }
+  .node-tag   { font-family: var(--mono); font-size: 10px; margin-top: 5px; opacity: 0.75; }
+
+  .node.incore  { border-color: var(--c-incore-border); }
+  .node.incore:hover  { background: rgba(232,84,84,0.12);  border-color: var(--c-incore);  }
+  .node.incore  .node-tag  { color: var(--c-incore); }
+
+  .node.excore  { border-color: var(--c-excore-border); }
+  .node.excore:hover  { background: rgba(232,160,48,0.12); border-color: var(--c-excore); }
+  .node.excore  .node-tag  { color: var(--c-excore); }
+
+  .node.process { border-color: var(--c-process-border); }
+  .node.process:hover { background: rgba(48,200,144,0.12); border-color: var(--c-process); }
+  .node.process .node-tag { color: var(--c-process); }
+
+  .node.marine  { border-color: var(--c-marine-border); }
+  .node.marine:hover  { background: rgba(74,171,240,0.12);  border-color: var(--c-marine); }
+  .node.marine  .node-tag  { color: var(--c-marine); }
+
+  .node.robot   { border-color: var(--c-robot-border); }
+  .node.robot:hover   { background: rgba(160,122,240,0.12); border-color: var(--c-robot); }
+  .node.robot   .node-tag   { color: var(--c-robot); }
+
+  .node.edge    { border-color: var(--c-edge-border); }
+  .node.edge:hover    { background: rgba(136,152,176,0.12); border-color: var(--c-edge); }
+  .node.edge    .node-tag    { color: var(--c-edge); }
+
+  .node.twin    { border-color: var(--c-twin-border); }
+  .node.twin:hover    { background: rgba(32,212,160,0.15);  border-color: var(--c-twin); }
+  .node.twin    .node-tag    { color: var(--c-twin); }
+
+  /* ─── Banner rows ─── */
+  .banner {
+    border-radius: 6px;
+    padding: 9px 14px;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .banner strong { font-weight: 500; display: block; margin-bottom: 2px; }
+  .banner.incore  { background: rgba(232,84,84,0.1);  border-left: 3px solid var(--c-incore);  color: #f0a8a8; }
+  .banner.excore  { background: rgba(232,160,48,0.1); border-left: 3px solid var(--c-excore);  color: #f0cc88; }
+  .banner.process { background: rgba(48,200,144,0.1); border-left: 3px solid var(--c-process); color: #80e0b8; }
+  .banner.marine  { background: rgba(74,171,240,0.1); border-left: 3px solid var(--c-marine);  color: #88ccf4; }
+  .banner.robot   { background: rgba(160,122,240,0.1);border-left: 3px solid var(--c-robot);   color: #c0a8f8; }
+  .banner.twin    { background: rgba(32,212,160,0.12);border-left: 3px solid var(--c-twin);    color: #80e8cc; }
+  .banner.cloud   { background: rgba(80,112,160,0.1); border-left: 3px solid var(--c-cloud);   color: #90aad0; }
+  .banner-dim { color: var(--text-dim); font-size: 11px; margin-top: 2px; }
+
+  /* ─── Flow arrow ─── */
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .flow-arrow::before { content: ''; display: block; height: 1px; width: 40px; background: var(--border); }
+  .flow-arrow::after  { content: ''; display: block; height: 1px; flex: 1; max-width: 40px; background: var(--border); }
+  .arrow-down {
+    text-align: center;
+    padding: 6px 0;
+    color: var(--text-dim);
+    font-size: 18px;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  /* ─── Twin sub-grid ─── */
+  .twin-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+  /* ─── Feedback row ─── */
+  .feedback-row {
+    margin-top: 12px;
+    background: rgba(32,212,160,0.07);
+    border: 1px solid rgba(32,212,160,0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .feedback-icon { font-size: 20px; flex-shrink: 0; color: var(--c-twin); margin-top: 1px; }
+  .feedback-text strong { font-size: 12px; font-weight: 500; color: var(--c-twin); display: block; margin-bottom: 3px; }
+  .feedback-text p { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ─── Safety path callout ─── */
+  .safety-callout {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: rgba(232,84,84,0.12);
+    border: 1px solid rgba(232,84,84,0.35);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--c-incore);
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── RPS banner ─── */
+  .rps-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    align-items: stretch;
+  }
+  .rps-box {
+    background: rgba(232,84,84,0.08);
+    border: 1px dashed rgba(232,84,84,0.4);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #f0a8a8;
+    flex: 1;
+  }
+  .rps-box strong { display: block; font-size: 12px; color: var(--c-incore); margin-bottom: 2px; font-weight: 500; }
+
+  /* ─── Modal overlay ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(5,8,14,0.82);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    max-width: 540px;
+    width: 100%;
+    position: relative;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  }
+  .modal-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .modal h2 { font-size: 17px; font-weight: 600; color: var(--text-bright); margin-bottom: 12px; }
+  .modal p  { font-size: 13px; color: var(--text); line-height: 1.65; margin-bottom: 10px; }
+  .modal ul { padding-left: 18px; }
+  .modal li { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 4px; }
+  .modal-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 20px; line-height: 1;
+    transition: color 0.1s;
+  }
+  .modal-close:hover { color: var(--text-bright); }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface); border-radius: 3px; }
+
+  /* ─── Print ─── */
+  @media print {
+    body { background: white; color: #111; padding: 16px; }
+    .modal-overlay { display: none !important; }
+    .node { border-color: #ccc !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<div class="header">
+  <div class="header-tag">System architecture · Floating SMR</div>
+  <h1>Robotic Monitoring System — Digital Twin Architecture</h1>
+  <p>All sensor zones, robotic platforms, edge processing, and digital twin integration layers for a floating small modular reactor. Click any node for details.</p>
+</div>
+
+<!-- ══════════════ LEGEND ══════════════ -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-incore)"></div>In-core sensors</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-excore)"></div>Ex-core detectors</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-process)"></div>Process &amp; radiation</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-marine)"></div>Marine &amp; structural</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-robot)"></div>Robotic platforms</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-edge)"></div>Edge processing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-twin)"></div>Digital twin core</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-cloud)"></div>Offsite / cloud</div>
+</div>
+
+<!-- ══════════════ ZONE 1: IN-CORE ══════════════ -->
+<div class="zone zone-incore">
+  <div class="zone-label">Zone 1 — In-core sensors (reactor vessel interior)</div>
+  <div class="safety-callout">⚠ Highest radiation zone</div>
+  <div class="node-grid node-grid-4">
+    <div class="node incore" onclick="showModal('spnd')">
+      <div class="node-title">Self-powered neutron detectors (SPNDs)</div>
+      <div class="node-sub">Vanadium or rhodium emitter; generates current proportional to neutron flux without external power</div>
+      <div class="node-tag">neutron flux · local power</div>
+    </div>
+    <div class="node incore" onclick="showModal('gamma-thermo')">
+      <div class="node-title">Gamma thermometers</div>
+      <div class="node-sub">Measures gamma heating rate as proxy for local fission power; no moving parts</div>
+      <div class="node-tag">gamma heating · power distribution</div>
+    </div>
+    <div class="node incore" onclick="showModal('incore-fission')">
+      <div class="node-title">In-core fission chambers</div>
+      <div class="node-sub">Miniaturized ionization chambers with fissile coating; flux mapping over wide range</div>
+      <div class="node-tag">startup → power range</div>
+    </div>
+    <div class="node incore" onclick="showModal('core-rtd')">
+      <div class="node-title">Core RTDs &amp; thermocouples</div>
+      <div class="node-sub">RTDs at coolant inlet/outlet; thermocouples at fuel assembly exits for thermal output</div>
+      <div class="node-tag">fuel exit temp · coolant ΔT</div>
+    </div>
+  </div>
+  <div class="banner incore" style="margin-top:12px">
+    <strong>Movable in-core detector robot (hydraulic / motorized probe)</strong>
+    Traverses instrumentation tubes to map full 3D flux distribution on demand. Shielded cable + wireless relay transmits to edge layer. Robotic deployment replaces manual fuel handling manipulations during flux mapping campaigns.
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 2: EX-CORE ══════════════ -->
+<div class="zone zone-excore">
+  <div class="zone-label">Zone 2 — Ex-core detectors (outside reactor vessel, in biological shield)</div>
+  <div class="node-grid node-grid-4">
+    <div class="node excore" onclick="showModal('startup-range')">
+      <div class="node-title">Startup range detectors</div>
+      <div class="node-sub">Proportional counters or high-sensitivity fission chambers; pulse-counting mode for very low flux near shutdown</div>
+      <div class="node-tag">~10⁻¹¹ → 10⁻² % FP</div>
+    </div>
+    <div class="node excore" onclick="showModal('intermediate-range')">
+      <div class="node-title">Intermediate range detectors</div>
+      <div class="node-sub">Compensated ion chambers (CIC); log-power and reactor period signals across 7–8 decades of power</div>
+      <div class="node-tag">~10⁻⁴ → 200% FP · period</div>
+    </div>
+    <div class="node excore" onclick="showModal('power-range')">
+      <div class="node-title">Power range detectors</div>
+      <div class="node-sub">Uncompensated ion chambers; four symmetric channels providing axial flux difference and absolute power</div>
+      <div class="node-tag">~2 → 125% FP · axial shape</div>
+    </div>
+    <div class="node excore" onclick="showModal('excore-fission')">
+      <div class="node-title">Ex-core fission chambers</div>
+      <div class="node-sub">Used for diversity and redundancy; operate across multiple decades; less sensitive to gamma than ion chambers</div>
+      <div class="node-tag">diversity · redundancy</div>
+    </div>
+  </div>
+  <div class="rps-row">
+    <div class="rps-box">
+      <strong>⚡ Safety-hardwired path → Reactor Protection System (RPS)</strong>
+      Period trip, high-flux trip, and power rate-of-change signals go directly to RPS via qualified hardwired channels. This path bypasses the digital twin entirely — no software latency in the safety loop.
+    </div>
+    <div class="rps-box" style="border-color:rgba(232,160,48,0.3); background:rgba(232,160,48,0.07); color:#f0cc88;">
+      <strong style="color:var(--c-excore)">Secondary path → Digital twin</strong>
+      The same signals are mirrored to the edge layer and digital twin for predictive analytics, trend monitoring, and anomaly detection — but this path is non-safety-class and carries no control authority.
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 3: PROCESS ══════════════ -->
+<div class="zone zone-process">
+  <div class="zone-label">Zone 3 — Process instrumentation &amp; radiation monitoring</div>
+  <div class="node-grid" style="grid-template-columns: repeat(5, 1fr)">
+    <div class="node process" onclick="showModal('proc-rtd')">
+      <div class="node-title">RTDs &amp; thermocouples</div>
+      <div class="node-sub">Primary coolant, feedwater, steam generator; PT100 RTDs for precision</div>
+      <div class="node-tag">coolant / steam temps</div>
+    </div>
+    <div class="node process" onclick="showModal('pressure')">
+      <div class="node-title">Pressure transmitters</div>
+      <div class="node-sub">RCS pressure, pressurizer level, containment pressure; 500–2500 sensors per plant</div>
+      <div class="node-tag">RCS · containment · steam</div>
+    </div>
+    <div class="node process" onclick="showModal('flow')">
+      <div class="node-title">Flow meters</div>
+      <div class="node-sub">Magnetic flowmeters for primary loop; ultrasonic clamp-on for secondary; vortex for steam</div>
+      <div class="node-tag">primary / secondary loops</div>
+    </div>
+    <div class="node process" onclick="showModal('area-rad')">
+      <div class="node-title">Area radiation monitors</div>
+      <div class="node-sub">GM counters and scintillation detectors throughout containment, auxiliary buildings, and open deck</div>
+      <div class="node-tag">GM · NaI scintillator</div>
+    </div>
+    <div class="node process" onclick="showModal('effluent')">
+      <div class="node-title">Effluent monitors</div>
+      <div class="node-sub">Liquid and gaseous radioactivity; noble gas, iodine, and particulate monitors on vent stack</div>
+      <div class="node-tag">liquid · gas · stack</div>
+    </div>
+  </div>
+  <div class="banner process">
+    <strong>Water chemistry sensors (automated inline)</strong>
+    pH / conductivity · dissolved O₂ &amp; H₂ · boric acid concentration (PWR) · turbidity · ICP-MS (inductively coupled plasma mass spectrometry) for trace metal analysis · water conductivity for purity control
+    <div class="banner-dim">Coolant chemistry directly feeds corrosion models in digital twin; ICP-MS automated sampling eliminates onsite lab testing.</div>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 4: MARINE ══════════════ -->
+<div class="zone zone-marine">
+  <div class="zone-label">Zone 4 — Marine, structural &amp; seismic sensors (hull &amp; floating platform)</div>
+  <div class="node-grid" style="grid-template-columns: repeat(5, 1fr)">
+    <div class="node marine" onclick="showModal('accel')">
+      <div class="node-title">Accelerometers &amp; IMUs</div>
+      <div class="node-sub">Six-degree-of-freedom hull motion; seismic isolation performance; robot motion compensation</div>
+      <div class="node-tag">6-DOF · seismic</div>
+    </div>
+    <div class="node marine" onclick="showModal('vibration')">
+      <div class="node-title">Vibration / acoustic emission</div>
+      <div class="node-sub">Reactor internals structural health; pump bearing monitoring; loose-parts detection</div>
+      <div class="node-tag">structural integrity</div>
+    </div>
+    <div class="node marine" onclick="showModal('strain-fbg')">
+      <div class="node-title">Strain gauges / FBG</div>
+      <div class="node-sub">Fiber Bragg grating sensors on hull and reactor vessel; immune to EMI; distributed temperature sensing</div>
+      <div class="node-tag">hull stress · vessel strain</div>
+    </div>
+    <div class="node marine" onclick="showModal('sonar-nde')">
+      <div class="node-title">Sonar / ultrasonic NDE</div>
+      <div class="node-sub">Below-waterline hull inspection; weld integrity; thickness measurement for corrosion quantification</div>
+      <div class="node-tag">hull · welds · thickness</div>
+    </div>
+    <div class="node marine" onclick="showModal('corrosion')">
+      <div class="node-title">Corrosion / cathodic protection</div>
+      <div class="node-sub">Hull corrosion rate sensors; cathodic protection potential monitoring; anode consumption tracking</div>
+      <div class="node-tag">marine hull integrity</div>
+    </div>
+  </div>
+  <div class="banner marine">
+    <strong>Metocean sensors (floating SMR–specific)</strong>
+    Wave height &amp; period (wave radar / ultrasonic) · wind speed &amp; direction (anemometers) · sea state classification · surface water temperature · mooring tension load cells · draft / freeboard sensors
+    <div class="banner-dim">Platform stability inputs feed motion compensation algorithm on all robotic platforms. Hull motion data is applied to correct sensor readings before forwarding downstream.</div>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 5: ROBOTIC PLATFORMS ══════════════ -->
+<div class="zone zone-robot">
+  <div class="zone-label">Zone 5 — Robotic platforms (sensor carriers &amp; actuators)</div>
+  <div class="node-grid" style="grid-template-columns: repeat(5, 1fr)">
+    <div class="node robot" onclick="showModal('crawler')">
+      <div class="node-title">Crawler robots</div>
+      <div class="node-sub">Tracked or wheeled; containment floor and vessel exterior; carry rad detectors, cameras, eddy-current probes</div>
+      <div class="node-tag">containment · vessel exterior</div>
+    </div>
+    <div class="node robot" onclick="showModal('rov')">
+      <div class="node-title">Submersible ROV</div>
+      <div class="node-sub">Below-waterline hull inspection; sonar mapping; cathodic protection survey; marine growth assessment</div>
+      <div class="node-tag">underwater · hull · sonar</div>
+    </div>
+    <div class="node robot" onclick="showModal('drone')">
+      <div class="node-title">Aerial drones (UAV)</div>
+      <div class="node-sub">Perimeter patrol; dome and stack inspection; radiation survey; intrusion detection; thermal imaging</div>
+      <div class="node-tag">perimeter · aerial rad survey</div>
+    </div>
+    <div class="node robot" onclick="showModal('arm')">
+      <div class="node-title">Manipulator arms</div>
+      <div class="node-sub">Movable in-core detector deployment; component replacement; sample collection; valve operation</div>
+      <div class="node-tag">in-core deployment · maintenance</div>
+    </div>
+    <div class="node robot" onclick="showModal('onboard')">
+      <div class="node-title">Onboard sensor suite</div>
+      <div class="node-sub">LIDAR (navigation/mapping) · radiation-hardened cameras · semiconductor rad detector · eddy-current probe · IMU</div>
+      <div class="node-tag">LIDAR · camera · eddy current</div>
+    </div>
+  </div>
+  <div class="banner robot">
+    <strong>Robot communication architecture</strong>
+    In-core robots: radiation-hardened shielded cable · ROV: underwater acoustic modem + fiber tether · Drones &amp; crawlers: encrypted 5G / WiFi-6 mesh · All platforms: IMU-based motion compensation applied onboard before data forwarded
+    <div class="banner-dim">All robotic platforms receive re-tasking commands from the digital twin path planner. Robots are dispatched adaptively to regions where the twin detects sensor coverage gaps or anomalies.</div>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 6: EDGE PROCESSING ══════════════ -->
+<div class="zone zone-edge">
+  <div class="zone-label">Zone 6 — On-platform edge processing (real-time layer)</div>
+  <div class="node-grid node-grid-4">
+    <div class="node edge" onclick="showModal('sig-cond')">
+      <div class="node-title">Signal conditioning</div>
+      <div class="node-sub">Amplification, anti-alias filtering, A/D conversion; noise rejection; cable loss compensation</div>
+      <div class="node-tag">amplify · filter · digitize</div>
+    </div>
+    <div class="node edge" onclick="showModal('validation')">
+      <div class="node-title">Real-time validation</div>
+      <div class="node-sub">Plausibility checks; built-in test equipment (BITE); sensor health and drift monitoring; redundancy voting</div>
+      <div class="node-tag">BITE · voting · plausibility</div>
+    </div>
+    <div class="node edge" onclick="showModal('fusion')">
+      <div class="node-title">Data fusion</div>
+      <div class="node-sub">Multi-sensor Kalman filtering; cross-correlation of redundant channels; motion-compensated data alignment</div>
+      <div class="node-tag">Kalman · cross-correlation</div>
+    </div>
+    <div class="node edge" onclick="showModal('cybersec')">
+      <div class="node-title">Cybersecurity gateway</div>
+      <div class="node-sub">Data diode (one-way transmission); encrypted SCADA bridge; protocol conversion; IDS/anomaly detection</div>
+      <div class="node-tag">data diode · encrypted bridge</div>
+    </div>
+  </div>
+  <div class="banner" style="background:rgba(136,152,176,0.08); border-left:3px solid var(--c-edge); color:#90a8c8; margin-top:10px; border-radius:6px; padding:9px 14px; font-size:12px;">
+    Output: validated, motion-compensated, fused sensor data stream forwarded to digital twin core →
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 7: DIGITAL TWIN ══════════════ -->
+<div class="zone zone-twin">
+  <div class="zone-label">Zone 7 — Digital twin core — physics-informed virtual reactor replica</div>
+
+  <div class="twin-grid">
+    <div class="node twin" onclick="showModal('physics-model')">
+      <div class="node-title">Physics model</div>
+      <div class="node-sub">Coupled neutronics, thermal-hydraulics, and structural mechanics; high-fidelity first-principles model</div>
+      <div class="node-tag">neutronics · TH · FEA</div>
+    </div>
+    <div class="node twin" onclick="showModal('state-estimator')">
+      <div class="node-title">State estimator</div>
+      <div class="node-sub">Bayesian/Kalman fusion of sensor stream with physics model; continuously updates virtual reactor state</div>
+      <div class="node-tag">Bayesian · real-time update</div>
+    </div>
+    <div class="node twin" onclick="showModal('predictive')">
+      <div class="node-title">Predictive analytics</div>
+      <div class="node-sub">Remaining useful life (RUL) models; component degradation trajectories; maintenance scheduling optimization</div>
+      <div class="node-tag">RUL · degradation · schedule</div>
+    </div>
+    <div class="node twin" onclick="showModal('anomaly')">
+      <div class="node-title">Anomaly detection</div>
+      <div class="node-sub">ML / deep learning models trained on normal operating signatures; flags statistical deviations in real time</div>
+      <div class="node-tag">ML · deviation alerts</div>
+    </div>
+  </div>
+
+  <div class="twin-grid">
+    <div class="node twin" onclick="showModal('3d-geo')">
+      <div class="node-title">3D geometry twin</div>
+      <div class="node-sub">Full CAD model of hull, containment, vessel, and core; updated by laser scan / LIDAR robot surveys</div>
+      <div class="node-tag">CAD · hull · containment</div>
+    </div>
+    <div class="node twin" onclick="showModal('marine-motion')">
+      <div class="node-title">Marine motion model</div>
+      <div class="node-sub">Six-DOF hull dynamics coupled to reactor physics; unique to floating SMR — pitch/roll affects coolant flow</div>
+      <div class="node-tag">6-DOF · wave coupling</div>
+    </div>
+    <div class="node twin" onclick="showModal('path-planner')">
+      <div class="node-title">Robot path planner</div>
+      <div class="node-sub">Adaptive inspection scheduling; dispatches robots to coverage gaps and anomaly locations identified by twin</div>
+      <div class="node-tag">adaptive dispatch · coverage</div>
+    </div>
+    <div class="node twin" onclick="showModal('hmi')">
+      <div class="node-title">Operator HMI</div>
+      <div class="node-sub">3D real-time visualization of virtual reactor; alert dashboards; what-if scenario simulation; remote access</div>
+      <div class="node-tag">3D viz · alerts · simulation</div>
+    </div>
+  </div>
+
+  <div class="feedback-row">
+    <div class="feedback-icon">↩</div>
+    <div class="feedback-text">
+      <strong>Closed-loop feedback: digital twin → robotic platforms</strong>
+      <p>The twin continuously identifies regions with degrading sensor coverage, emerging anomalies, or high-uncertainty zones. It re-tasks the nearest available robotic asset (crawler, ROV, drone, or manipulator) to acquire targeted data, which is ingested back into the twin to reduce uncertainty. This closed-loop autonomy is the defining capability of the robotic monitoring system — inspection is no longer periodic and scheduled, but continuous and adaptive.</p>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ══════════════ ZONE 8: CLOUD ══════════════ -->
+<div class="zone zone-cloud">
+  <div class="zone-label">Zone 8 — Offsite / cloud layer</div>
+  <div class="node-grid node-grid-4">
+    <div class="node" style="border-color:var(--c-cloud-border)" onclick="showModal('reg-report')">
+      <div class="node-title" style="color:var(--text-bright)">Regulatory reporting</div>
+      <div class="node-sub">Automated generation of operational reports; dose records; effluent data submission to regulatory body</div>
+      <div class="node-tag" style="color:var(--c-cloud)">NRC / IAEA reporting</div>
+    </div>
+    <div class="node" style="border-color:var(--c-cloud-border)" onclick="showModal('fleet')">
+      <div class="node-title" style="color:var(--text-bright)">Fleet benchmarking</div>
+      <div class="node-sub">Cross-fleet performance comparison; shared degradation libraries; collective learning across SMR units</div>
+      <div class="node-tag" style="color:var(--c-cloud)">multi-unit learning</div>
+    </div>
+    <div class="node" style="border-color:var(--c-cloud-border)" onclick="showModal('archive')">
+      <div class="node-title" style="color:var(--text-bright)">Long-term trend archive</div>
+      <div class="node-sub">Decades-scale degradation trend storage; training data for future ML models; forensic analysis support</div>
+      <div class="node-tag" style="color:var(--c-cloud)">degradation archive</div>
+    </div>
+    <div class="node" style="border-color:var(--c-cloud-border)" onclick="showModal('remote-op')">
+      <div class="node-title" style="color:var(--text-bright)">Remote operator override</div>
+      <div class="node-sub">Authorized remote monitoring and supervisory commands only; strict access control; no inbound path to safety systems</div>
+      <div class="node-tag" style="color:var(--c-cloud)">supervisory only</div>
+    </div>
+  </div>
+  <div class="banner cloud" style="margin-top:10px">
+    <strong>One-way encrypted uplink (data diode enforced) — satellite or submarine fiber</strong>
+    No inbound command path to safety-class systems. All outbound data is encrypted and integrity-checked. Uplink bandwidth prioritized: safety-significant trends first, full sensor archive second.
+  </div>
+</div>
+
+<!-- ══════════════ MODAL ══════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal(null, true)">✕</button>
+    <div class="modal-tag" id="modal-tag"></div>
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const data = {
+  spnd: {
+    tag: 'In-core · neutron detector',
+    title: 'Self-powered neutron detectors (SPNDs)',
+    body: `<p>SPNDs generate a small current directly proportional to neutron flux without requiring an external power supply — the neutron flux itself produces the signal through beta emission from an activated emitter material (vanadium, rhodium, or platinum).</p>
+    <ul>
+      <li><strong>Vanadium SPNDs</strong>: slow response (~3–5 min), very stable long-term, used for steady-state flux mapping</li>
+      <li><strong>Rhodium SPNDs</strong>: faster response (~2 min), slightly less stable, more common in PWRs</li>
+      <li><strong>Platinum SPNDs</strong>: fast response (seconds), used where dynamic flux data is needed</li>
+    </ul>
+    <p>Dozens of SPNDs are distributed axially and radially throughout the core, providing a detailed 3D neutron flux map that feeds directly into the physics model of the digital twin.</p>`
+  },
+  'gamma-thermo': {
+    tag: 'In-core · gamma sensor',
+    title: 'Gamma thermometers',
+    body: `<p>A gamma thermometer measures the temperature rise in a metal rod caused by gamma ray absorption — since gamma flux is directly proportional to local fission rate, this gives a measure of local power.</p>
+    <p>They contain no active electronics in the core, have no moving parts, and have an extremely long operational life. Output is a millivolt-level thermoelectric signal read externally.</p>
+    <p>In the digital twin context, gamma thermometer readings provide an independent cross-check on SPND flux maps and direct calorimetric confirmation of local power density.</p>`
+  },
+  'incore-fission': {
+    tag: 'In-core · neutron detector',
+    title: 'In-core fission chambers',
+    body: `<p>Miniaturized ionization chambers with a fissile coating (U-235 or Pu-239) on the inner electrode. Neutrons cause fissions in the coating, producing ionization current proportional to flux.</p>
+    <p>Unlike SPNDs, they can operate in pulse-counting mode at very low flux levels, making them useful during startup phases even when deployed in-core. They can also transition to mean-square-voltage (MSV or Campbell) mode at higher flux levels.</p>
+    <p>In the robotic system, movable in-core fission chambers are physically traversed by the manipulator robot through instrumentation thimble tubes to build detailed 3D flux maps on demand.</p>`
+  },
+  'core-rtd': {
+    tag: 'In-core · temperature',
+    title: 'Core RTDs and thermocouples',
+    body: `<p>Thermocouples (typically chromel-alumel, Type K) are positioned at the exit of each fuel assembly to measure the temperature rise of coolant as it passes through the fuel. The coolant temperature rise across the core is the most direct calorimetric measure of reactor thermal power.</p>
+    <p>RTDs (PT100 or PT200 class) are used for primary coolant temperature measurement where higher precision is required — cold leg, hot leg, and pressurizer regions.</p>
+    <p>In the digital twin, the full array of assembly exit thermocouples provides the thermal boundary condition for the thermal-hydraulics model, allowing the twin to calculate power distribution independently of the neutron flux measurements.</p>`
+  },
+  'startup-range': {
+    tag: 'Ex-core · startup range',
+    title: 'Startup range detectors',
+    body: `<p>During shutdown and early startup, the reactor produces very few neutrons — perhaps 10⁻¹¹ to 10⁻⁶ of full power. Startup range detectors (also called source range monitors) must detect individual neutron events at these extremely low levels.</p>
+    <ul>
+      <li>Operate in <strong>pulse-counting mode</strong> — individual ionization events are counted as discrete pulses</li>
+      <li>Typically <strong>BF₃ proportional counters</strong> or high-efficiency fission chambers with boron-10 or U-235 lining</li>
+      <li>Automatically withdrawn (in some designs) when flux rises into the intermediate range to prevent saturation damage</li>
+    </ul>
+    <p>The startup range signal is critical for detecting unexpected criticality during refuelling or cold shutdown — a key safety function.</p>`
+  },
+  'intermediate-range': {
+    tag: 'Ex-core · intermediate range',
+    title: 'Intermediate range detectors (IRDs)',
+    body: `<p>Compensated ion chambers (CICs) covering approximately 10⁻⁴% to 200% of full power — about 7 to 8 decades. The compensation subtracts the gamma ionization current from the total signal, leaving a neutron-only measurement that remains accurate as gamma flux rises during heatup.</p>
+    <p>The most safety-critical output is the <strong>reactor period signal</strong> — the rate of change of log power. A short period (reactor power doubling rapidly) triggers an automatic scram even before the power range detectors respond.</p>
+    <p>In the digital twin, the period signal feeds the predictive analytics module to model startup trajectories and detect anomalous reactivity transients early.</p>`
+  },
+  'power-range': {
+    tag: 'Ex-core · power range',
+    title: 'Power range detectors',
+    body: `<p>Uncompensated ion chambers (UCICs) designed for the 2–125% full power operating range. They do not compensate for gamma because at power levels the neutron signal dominates overwhelmingly.</p>
+    <p>Typically four channels arranged symmetrically around the reactor vessel, each split into upper and lower sections. This allows calculation of the <strong>axial flux difference</strong> (AFD) — a key parameter for detecting xenon oscillations and ensuring the power shape remains within technical specification limits.</p>
+    <p>The four-channel 2-of-4 logic feeds the reactor protection system for high-neutron-flux scram signals.</p>`
+  },
+  'excore-fission': {
+    tag: 'Ex-core · fission chamber',
+    title: 'Ex-core fission chambers',
+    body: `<p>Deployed outside the vessel as a diverse alternative to ion chambers. Because they use a different physical detection mechanism (fission fragment ionization vs. direct gamma/neutron ionization), they provide independence from common-cause failures affecting ion chambers.</p>
+    <p>They are particularly valued in SMR designs where the compact geometry limits the number of ex-core detector positions — ex-core fission chambers can cover a wider flux range than ion chambers and are more robust in the event of signal cable degradation.</p>
+    <p>In the floating SMR context, they also tolerate vibration better than large ion chamber assemblies.</p>`
+  },
+  'proc-rtd': {
+    tag: 'Process · temperature',
+    title: 'Process RTDs and thermocouples',
+    body: `<p>The balance-of-plant temperature measurement network. In a typical reactor this includes 60+ resistance temperature detectors and 100+ thermocouples measuring coolant temperatures across the primary and secondary systems.</p>
+    <ul>
+      <li><strong>Primary coolant</strong>: PT100/PT200 RTDs at hot leg and cold leg — primary coolant temperature (Tc, Th)</li>
+      <li><strong>Steam generators</strong>: tube-side and shell-side temperatures</li>
+      <li><strong>Feedwater</strong>: inlet temperature to steam generator</li>
+      <li><strong>Pressurizer</strong>: heater and spray temperatures</li>
+    </ul>
+    <p>These feed the thermal-hydraulics model in the digital twin, which uses them to calculate heat transfer coefficients, DNBR margins, and coolant inventory.</p>`
+  },
+  pressure: {
+    tag: 'Process · pressure',
+    title: 'Pressure transmitters',
+    body: `<p>With 500–2,500 pressure sensors per plant, pressure measurement is the most numerous sensor type. Key measurement points:</p>
+    <ul>
+      <li><strong>Reactor coolant system (RCS)</strong>: operating pressure ~155 bar in PWRs; pressurizer pressure is the primary control parameter</li>
+      <li><strong>Containment pressure</strong>: monitors for loss-of-coolant accident (LOCA) conditions</li>
+      <li><strong>Steam generators</strong>: secondary side pressure for steam supply management</li>
+      <li><strong>ECCS accumulators</strong>: nitrogen cover gas pressure</li>
+    </ul>
+    <p>All safety-class pressure transmitters are seismically and environmentally qualified per IEEE 323/344 — in the floating SMR this qualification extends to marine vibration and inclination.</p>`
+  },
+  flow: {
+    tag: 'Process · flow',
+    title: 'Flow meters',
+    body: `<p>Coolant flow measurement is essential for calculating core power from the coolant temperature rise (Q = ṁ·Cp·ΔT).</p>
+    <ul>
+      <li><strong>Magnetic flowmeters</strong>: non-intrusive, no pressure drop; used on primary coolant lines where pipe penetrations are minimized</li>
+      <li><strong>Ultrasonic clamp-on</strong>: zero pipe penetration; useful on secondary circuit; can be repositioned by robotic platform</li>
+      <li><strong>Differential pressure elements</strong> (venturi/orifice): classical approach; high reliability but creates pressure drop</li>
+      <li><strong>Vortex flowmeters</strong>: steam and feedwater lines</li>
+    </ul>`
+  },
+  'area-rad': {
+    tag: 'Process · radiation',
+    title: 'Area radiation monitors',
+    body: `<p>A network of fixed radiation detectors throughout all plant areas providing continuous dose rate monitoring. In a floating SMR the network extends to the open deck and hull perimeter.</p>
+    <ul>
+      <li><strong>Geiger-Müller counters</strong>: robust, simple, long-life; measure gamma and high-energy beta in personnel areas</li>
+      <li><strong>NaI scintillation detectors</strong>: higher sensitivity; used near coolant lines and in the reactor building</li>
+      <li><strong>Ionization chamber area monitors</strong>: wide dynamic range; used in high-radiation areas</li>
+    </ul>
+    <p>Robotic platforms carry compact versions of these detectors (GM tubes or CsI scintillators) to map dose rate fields dynamically, supplementing the fixed network.</p>`
+  },
+  effluent: {
+    tag: 'Process · radiation',
+    title: 'Effluent monitors',
+    body: `<p>Continuous monitoring of radioactive releases in liquid and gaseous streams — both a regulatory requirement and an early warning of fuel cladding failure.</p>
+    <ul>
+      <li><strong>Noble gas monitors</strong>: Kr-85, Xe-133 in the ventilation stack; activated charcoal delay beds with scintillation detection</li>
+      <li><strong>Iodine monitors</strong>: I-131 is the key fission product isotope; charcoal cartridge sampling with NaI detection</li>
+      <li><strong>Particulate monitors</strong>: filter paper sampling for alpha/beta aerosols</li>
+      <li><strong>Liquid effluent monitors</strong>: activity in processed liquid waste before discharge</li>
+    </ul>`
+  },
+  accel: {
+    tag: 'Marine · seismic / motion',
+    title: 'Accelerometers and IMUs',
+    body: `<p>Inertial measurement units (IMUs) combining three-axis accelerometers and gyroscopes are fundamental to the floating SMR system in ways that have no land-based equivalent.</p>
+    <ul>
+      <li><strong>Hull motion compensation</strong>: all robotic platform sensor data must be corrected for hull pitch, roll, and heave before it is meaningful — the IMU provides the real-time correction transform</li>
+      <li><strong>Seismic monitoring</strong>: accelerometers on the reactor vessel and biological shield detect seismic events; trigger automatic inspection routines in the digital twin</li>
+      <li><strong>Floating seismic isolation performance</strong>: Japan's JAEA has demonstrated that accelerometers in the water pool measure isolation effectiveness in real time</li>
+    </ul>`
+  },
+  vibration: {
+    tag: 'Marine · structural',
+    title: 'Vibration and acoustic emission sensors',
+    body: `<p>Vibration monitoring of reactor internals is a standard requirement across all reactor designs, but is more complex on floating platforms due to hull-transmitted vibration from waves, propulsion, and mooring.</p>
+    <ul>
+      <li><strong>Accelerometers on reactor internals</strong>: detect resonance frequency changes that indicate structural loosening or wear</li>
+      <li><strong>Acoustic emission (AE) sensors</strong>: detect crack growth in pressure boundary components as high-frequency stress wave bursts</li>
+      <li><strong>Loose parts monitoring</strong>: microphones on the reactor vessel detect metallic impact sounds from loose components</li>
+      <li><strong>Pump bearing vibration</strong>: coolant pump health monitoring via vibration spectrum analysis</li>
+    </ul>`
+  },
+  'strain-fbg': {
+    tag: 'Marine · structural',
+    title: 'Strain gauges and fiber Bragg grating sensors',
+    body: `<p>Structural health monitoring of the hull and reactor vessel under combined thermal, pressure, and marine loading.</p>
+    <p><strong>Fiber Bragg grating (FBG) sensors</strong> are particularly well-suited to nuclear environments because they are intrinsically immune to electromagnetic interference, resistant to radiation (especially fs-laser-inscribed FBGs), and a single fiber can host hundreds of sensing points — enabling distributed strain and temperature mapping with a single cable run.</p>
+    <ul>
+      <li>Temperature sensitivity: ~12.62 pm/°C</li>
+      <li>Can detect micro-strain in vessel walls long before detectable deformation</li>
+      <li>Deployed on hull frames to monitor fatigue accumulation from wave loading</li>
+    </ul>`
+  },
+  'sonar-nde': {
+    tag: 'Marine · inspection',
+    title: 'Sonar and ultrasonic NDE',
+    body: `<p>The below-waterline section of a floating SMR hull is inaccessible without the ROV and requires underwater inspection techniques.</p>
+    <ul>
+      <li><strong>Multi-beam sonar</strong>: ROV-mounted; produces full 3D point cloud of hull geometry; detects deformation, corrosion pitting, and marine growth</li>
+      <li><strong>Phased array ultrasonic testing (PAUT)</strong>: ROV-mounted probes contact the hull surface; measures wall thickness to 0.1 mm precision; maps corrosion extent</li>
+      <li><strong>Ultrasonic vibration measurement</strong>: non-contact acoustic measurement of reactor internal component vibration amplitudes from outside the vessel</li>
+    </ul>
+    <p>ROV survey data is imported into the 3D geometry twin to update the hull model and flag thickness reduction hotspots.</p>`
+  },
+  corrosion: {
+    tag: 'Marine · integrity',
+    title: 'Corrosion and cathodic protection sensors',
+    body: `<p>Marine corrosion is one of the dominant degradation mechanisms for a floating SMR hull and represents a safety-significant threat over the 60+ year design life.</p>
+    <ul>
+      <li><strong>Linear polarization resistance (LPR) probes</strong>: measure instantaneous corrosion rate in seawater; embedded in hull plating at representative locations</li>
+      <li><strong>Cathodic protection potential sensors</strong>: reference electrodes measure hull potential vs. Ag/AgCl; confirm sacrificial anodes and impressed current systems are functioning</li>
+      <li><strong>Anode consumption monitors</strong>: track mass loss rate of sacrificial zinc/aluminum anodes</li>
+    </ul>
+    <p>All corrosion rate data feeds the marine motion model's structural integrity sub-module in the digital twin, projecting remaining hull life.</p>`
+  },
+  crawler: {
+    tag: 'Robotic platform · crawler',
+    title: 'Crawler robots',
+    body: `<p>Tracked or magnetically-adhering wheeled robots that navigate the containment floor, vessel exterior, and structural steel of the reactor building. Key capabilities:</p>
+    <ul>
+      <li>Carry GM or scintillation detectors for dose-rate mapping</li>
+      <li>Deploy eddy-current probes for weld and pipe inspection without contact</li>
+      <li>Carry radiation-hardened cameras for visual inspection</li>
+      <li>Navigate using pre-loaded CAD map from 3D geometry twin, with real-time LIDAR correction</li>
+      <li>Radiation-hardened electronics; operational up to ~1 MGy total dose</li>
+    </ul>`
+  },
+  rov: {
+    tag: 'Robotic platform · ROV',
+    title: 'Submersible ROV',
+    body: `<p>Remotely operated vehicles for the underwater sections of the floating platform, which are inaccessible to surface personnel during operation.</p>
+    <ul>
+      <li>Multi-beam sonar for hull geometry mapping</li>
+      <li>Phased array UT probes (contact or water-coupled) for wall thickness measurement</li>
+      <li>High-resolution video cameras for visual inspection and marine growth assessment</li>
+      <li>Cathodic protection survey electrode</li>
+      <li>Communicated via fiber tether (high bandwidth) with acoustic modem backup</li>
+    </ul>
+    <p>ROV survey data is registered to the 3D geometry twin coordinate frame by USBL (ultra-short baseline) acoustic positioning.</p>`
+  },
+  drone: {
+    tag: 'Robotic platform · UAV',
+    title: 'Aerial drones (UAV)',
+    body: `<p>Multi-rotor UAVs for perimeter security and aerial inspection of the deck, dome, and exhaust stack — areas difficult to access by personnel.</p>
+    <ul>
+      <li>Radiation detectors (CsI or CLYC scintillators) for aerial dose-rate mapping and plume tracking</li>
+      <li>Thermal infrared cameras for heat loss mapping of the containment dome</li>
+      <li>Optical cameras for visual inspection of structural surfaces</li>
+      <li>Intrusion detection and perimeter patrol (replacing security personnel in harsh sea states)</li>
+    </ul>
+    <p>The digital twin integrates UAV dose-rate maps with fixed area monitor data to build a real-time 3D radiation field model of the entire platform.</p>`
+  },
+  arm: {
+    tag: 'Robotic platform · manipulator',
+    title: 'Manipulator arms',
+    body: `<p>Remote manipulator arms are used for tasks that require precision positioning inside the reactor vessel or containment, eliminating personnel radiation exposure.</p>
+    <ul>
+      <li><strong>Movable in-core detector deployment</strong>: insert and withdraw detector probes through instrumentation thimble tubes during flux mapping campaigns</li>
+      <li><strong>Component inspection and replacement</strong>: plug replacement, valve operation, instrumentation connector servicing</li>
+      <li><strong>Sample collection</strong>: water chemistry grab samples from primary coolant; coupon retrieval for material surveillance programs</li>
+    </ul>
+    <p>Manipulator positioning feedback is integrated with the 3D geometry twin for collision avoidance and precise probe placement.</p>`
+  },
+  onboard: {
+    tag: 'Robotic platform · sensors',
+    title: 'Onboard sensor suite (all platforms)',
+    body: `<p>Every robotic platform carries a core sensor package enabling it to navigate autonomously and collect data simultaneously:</p>
+    <ul>
+      <li><strong>LIDAR</strong>: 3D point cloud for navigation, obstacle avoidance, and geometry update of the digital twin</li>
+      <li><strong>Radiation-hardened cameras</strong>: visual inspection; AI-assisted defect detection (crack, corrosion, foreign material)</li>
+      <li><strong>Semiconductor radiation detector</strong>: compact CdZnTe or SiPM-based; real-time dose rate and isotopic identification</li>
+      <li><strong>Eddy-current probe</strong>: surface and near-surface crack detection in metallic components without contact</li>
+      <li><strong>IMU</strong>: 6-DOF position and orientation; motion compensation for all sensor data</li>
+    </ul>`
+  },
+  'sig-cond': {
+    tag: 'Edge processing',
+    title: 'Signal conditioning',
+    body: `<p>The first processing stage after sensors — converts raw physical signals into clean digital data streams.</p>
+    <ul>
+      <li><strong>Preamplifiers</strong>: low-noise amplification close to detector to minimize cable-induced noise pickup</li>
+      <li><strong>Anti-alias filters</strong>: low-pass filtering before A/D conversion to prevent aliasing</li>
+      <li><strong>Analog-to-digital conversion</strong>: typically 16–24 bit; sampling rates matched to signal dynamics</li>
+      <li><strong>Cable loss compensation</strong>: correction for signal attenuation in long cable runs from in-vessel detectors</li>
+      <li><strong>EMI rejection</strong>: shielded signal conditioning modules; critical in the marine RF environment</li>
+    </ul>`
+  },
+  validation: {
+    tag: 'Edge processing',
+    title: 'Real-time validation',
+    body: `<p>Before data reaches the digital twin, it passes through automated quality checks that flag suspect readings without waiting for human review.</p>
+    <ul>
+      <li><strong>Plausibility checks</strong>: upper/lower bounds, rate-of-change limits, physical consistency between related measurements</li>
+      <li><strong>Built-in test equipment (BITE)</strong>: periodic automated self-test of sensor electronics and cable continuity</li>
+      <li><strong>Redundancy voting</strong>: 2-of-3 or 2-of-4 logic on safety-significant channels; failed channel flagged and isolated</li>
+      <li><strong>Drift monitoring</strong>: tracks slow calibration drift using redundant channel cross-comparison</li>
+    </ul>`
+  },
+  fusion: {
+    tag: 'Edge processing',
+    title: 'Data fusion',
+    body: `<p>Combines outputs from multiple sensors measuring the same or related quantities into a single best estimate.</p>
+    <ul>
+      <li><strong>Kalman filtering</strong>: optimal linear estimator combining measurement noise model with process dynamics model; runs at sensor sampling rate</li>
+      <li><strong>Cross-correlation</strong>: verifies consistency between physically related measurements (e.g. neutron flux vs coolant temperature rise vs flow rate — all must satisfy the reactor heat balance)</li>
+      <li><strong>Motion compensation</strong>: IMU data applied to all robotic platform sensor streams to remove hull-motion-induced artifacts before forwarding</li>
+    </ul>`
+  },
+  cybersec: {
+    tag: 'Edge processing · security',
+    title: 'Cybersecurity gateway',
+    body: `<p>The critical security boundary between the physical sensor network (safety-class) and the digital twin (non-safety, IT-connected).</p>
+    <ul>
+      <li><strong>Data diode</strong>: hardware-enforced one-way data transmission — physically impossible for a signal to flow from the digital twin back into the safety instrumentation</li>
+      <li><strong>Protocol conversion</strong>: converts proprietary nuclear SCADA protocols to standard IT formats for the digital twin layer</li>
+      <li><strong>Intrusion detection</strong>: monitors for anomalous data patterns that could indicate a cyberattack attempting to inject false sensor data</li>
+      <li><strong>Encryption</strong>: AES-256 or equivalent for all data leaving the platform toward the cloud layer</li>
+    </ul>`
+  },
+  'physics-model': {
+    tag: 'Digital twin · physics',
+    title: 'Physics model',
+    body: `<p>The mathematical backbone of the digital twin — a high-fidelity coupled simulation of the reactor's physical processes running in real time (or faster-than-real-time for prediction).</p>
+    <ul>
+      <li><strong>Neutronics</strong>: nodal diffusion or transport methods; calculates 3D neutron flux and power distribution; updated by SPND and ex-core detector data</li>
+      <li><strong>Thermal-hydraulics</strong>: subchannel or system-level codes; calculates coolant temperature, flow, and pressure fields; calculates DNBR margins</li>
+      <li><strong>Structural mechanics (FEA)</strong>: finite element model of vessel and internals; calculates thermal stresses, fatigue, and irradiation embrittlement</li>
+    </ul>`
+  },
+  'state-estimator': {
+    tag: 'Digital twin · estimation',
+    title: 'State estimator',
+    body: `<p>The core algorithm that continuously reconciles what the physics model predicts with what the sensors actually measure, producing a best-estimate virtual reactor state.</p>
+    <p>Uses Bayesian or extended Kalman filtering: the physics model provides the prediction step (where the reactor should be, based on known inputs), and the sensor measurements provide the update step (correction based on observed reality). The result is a virtual state that is more accurate than either the model or the sensors alone.</p>
+    <p>The state estimator also quantifies uncertainty — regions where sensor coverage is thin have higher uncertainty, which triggers the robot path planner to dispatch an inspection asset.</p>`
+  },
+  predictive: {
+    tag: 'Digital twin · analytics',
+    title: 'Predictive analytics',
+    body: `<p>Uses the accumulated history of the twin's state estimates to forecast future equipment condition and schedule maintenance proactively.</p>
+    <ul>
+      <li><strong>Remaining useful life (RUL) models</strong>: for pumps, valves, sensors, and structural components; physics-based degradation models calibrated by inspection data</li>
+      <li><strong>Xenon redistribution prediction</strong>: forecasts core power shape evolution hours ahead, enabling pre-emptive control rod adjustments</li>
+      <li><strong>Hull fatigue accumulation</strong>: integrates wave loading history from metocean sensors into structural fatigue models</li>
+      <li><strong>Maintenance scheduling optimization</strong>: balances inspection interval recommendations against operational constraints</li>
+    </ul>`
+  },
+  anomaly: {
+    tag: 'Digital twin · AI',
+    title: 'Anomaly detection',
+    body: `<p>Machine learning models trained on normal operating data that continuously scan all sensor streams for deviations that could indicate developing faults — often detecting problems months before they would be apparent to human operators.</p>
+    <ul>
+      <li><strong>Autoencoder networks</strong>: learn the normal multivariate sensor signature; high reconstruction error flags anomalies</li>
+      <li><strong>Isolation forests</strong>: fast statistical anomaly detection across thousands of sensor channels simultaneously</li>
+      <li><strong>Convolutional neural networks</strong>: applied to vibration spectra and acoustic emission signals for structural anomaly classification</li>
+      <li><strong>2D CNN for degradation prediction</strong>: applied to time-series matrices; demonstrated superior accuracy for Z-pipe degradation prediction in experimental reactors</li>
+    </ul>`
+  },
+  '3d-geo': {
+    tag: 'Digital twin · geometry',
+    title: '3D geometry twin',
+    body: `<p>A continuously updated CAD model of the entire floating platform, from keel to dome, with millimeter-level accuracy maintained by periodic LIDAR scans from robotic platforms.</p>
+    <ul>
+      <li>Provides collision-free navigation maps for all robotic platforms</li>
+      <li>Allows visual inspection AI to compare current camera imagery against the baseline 3D model, automatically detecting geometric deviations (deformation, swelling, missing components)</li>
+      <li>ROV sonar surveys update the below-waterline hull geometry</li>
+      <li>FEA mesh is derived from the geometry twin for structural analysis</li>
+    </ul>`
+  },
+  'marine-motion': {
+    tag: 'Digital twin · marine',
+    title: 'Marine motion model',
+    body: `<p>The component of the digital twin that is entirely unique to floating SMRs — coupling the ocean environment to reactor physics.</p>
+    <p>Hull pitch and roll affect the orientation of the reactor vessel relative to gravity, which changes the natural circulation patterns in the coolant, the effective buoyancy of control rods, and the stress distribution on reactor internals. This coupling must be modeled to correctly interpret sensor readings and predict reactor behavior during heavy sea states.</p>
+    <ul>
+      <li>Six-DOF hydrodynamic hull model driven by wave spectra from metocean sensors</li>
+      <li>Coupled to thermal-hydraulics model via modified gravity vector and coolant inventory distribution</li>
+      <li>Validated against the Japanese JAEA floating seismic isolation test data</li>
+    </ul>`
+  },
+  'path-planner': {
+    tag: 'Digital twin · autonomy',
+    title: 'Robot path planner',
+    body: `<p>The module that closes the autonomy loop — translating the twin's uncertainty maps and anomaly alerts into specific inspection assignments for robotic platforms.</p>
+    <ul>
+      <li>Continuously queries the state estimator for high-uncertainty regions</li>
+      <li>Prioritizes inspection assignments by risk: anomaly alerts > high uncertainty > routine coverage</li>
+      <li>Dispatches the nearest available and appropriate robotic asset (crawler for dry areas, ROV for underwater, drone for aerial)</li>
+      <li>Plans collision-free paths using the 3D geometry twin and current robot positions</li>
+      <li>Adapts inspection frequency dynamically: quiet periods reduce patrol cadence; seismic events or anomaly detections trigger immediate high-frequency coverage</li>
+    </ul>`
+  },
+  hmi: {
+    tag: 'Digital twin · HMI',
+    title: 'Operator HMI',
+    body: `<p>The human-facing interface to the digital twin — designed for remote operation of a floating SMR with minimal onsite staff.</p>
+    <ul>
+      <li><strong>3D real-time visualization</strong>: colour-mapped power distribution, temperature fields, dose rates, and structural stress overlaid on the 3D geometry twin model</li>
+      <li><strong>Alert dashboard</strong>: prioritized anomaly alerts with confidence levels and recommended actions</li>
+      <li><strong>What-if simulation</strong>: operators can run the physics model forward in time under hypothetical scenarios (control rod withdrawal, pump trip) to plan responses</li>
+      <li><strong>Robot status</strong>: live map of all robotic platform positions, current tasks, battery/power status, and sensor health</li>
+      <li><strong>Remote access</strong>: secure connection for shore-based support specialists</li>
+    </ul>`
+  },
+  'reg-report': {
+    tag: 'Cloud · regulatory',
+    title: 'Regulatory reporting',
+    body: `<p>Automated generation and submission of operational data reports required by national nuclear regulators and IAEA safeguards.</p>
+    <ul>
+      <li>Effluent monitoring reports (daily/monthly gaseous and liquid release totals)</li>
+      <li>Operator dose records from personnel dosimetry systems</li>
+      <li>Reactor operating parameters (capacity factor, thermal power, trip history)</li>
+      <li>Material balance reports for nuclear safeguards (fuel inventory accounting)</li>
+    </ul>
+    <p>All data is digitally signed and timestamped before transmission on the one-way uplink.</p>`
+  },
+  fleet: {
+    tag: 'Cloud · fleet',
+    title: 'Fleet benchmarking',
+    body: `<p>One of the key advantages of digital-twin-equipped SMRs operating as a fleet is collective intelligence — degradation patterns observed on one unit can be used to re-calibrate predictive models on all units before the problem manifests elsewhere.</p>
+    <ul>
+      <li>Anonymized operating parameters shared across fleet to identify outliers</li>
+      <li>Shared degradation libraries: corrosion rates, pump wear curves, sensor drift statistics</li>
+      <li>ML model re-training on pooled fleet data improves anomaly detection accuracy across all units</li>
+      <li>Floating-specific data sharing: hull motion profiles, marine growth rates by ocean region</li>
+    </ul>`
+  },
+  archive: {
+    tag: 'Cloud · archive',
+    title: 'Long-term trend archive',
+    body: `<p>Nuclear plants are designed for 60–80 year operational lives, with licence renewal requiring demonstration of continued safety based on decades of operating data.</p>
+    <ul>
+      <li>Full-fidelity sensor archive retained for the operational life of the plant</li>
+      <li>Compressed trend data for long-term degradation analysis (irradiation embrittlement, creep, fatigue)</li>
+      <li>Training dataset for future generations of ML anomaly detection models</li>
+      <li>Forensic analysis support: complete reconstruction of plant state before and after any incident</li>
+    </ul>`
+  },
+  'remote-op': {
+    tag: 'Cloud · operations',
+    title: 'Remote operator override',
+    body: `<p>For a floating SMR operating far from shore with minimal onsite crew, remote access for qualified operators and specialists is essential — but must be carefully controlled to prevent cyberattack vectors.</p>
+    <ul>
+      <li><strong>Supervisory commands only</strong>: remote operators can view all data and issue high-level commands, but cannot directly actuate safety-class equipment (that requires local qualified operator action)</li>
+      <li><strong>Multi-factor authentication</strong>: biometric + hardware token + role-based access control</li>
+      <li><strong>Session recording</strong>: all remote sessions logged with full data capture for audit trail</li>
+      <li><strong>No inbound path to safety systems</strong>: the data diode architecture physically enforces this — the uplink is one-way outbound only</li>
+    </ul>`
+  }
+};
+
+function showModal(key) {
+  const d = data[key];
+  if (!d) return;
+  document.getElementById('modal-tag').textContent = d.tag;
+  document.getElementById('modal-tag').style.color = getTagColor(d.tag);
+  document.getElementById('modal-title').textContent = d.title;
+  document.getElementById('modal-body').innerHTML = d.body;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function getTagColor(tag) {
+  if (tag.includes('In-core')) return 'var(--c-incore)';
+  if (tag.includes('Ex-core')) return 'var(--c-excore)';
+  if (tag.includes('Process')) return 'var(--c-process)';
+  if (tag.includes('Marine')) return 'var(--c-marine)';
+  if (tag.includes('Robotic')) return 'var(--c-robot)';
+  if (tag.includes('Edge')) return 'var(--c-edge)';
+  if (tag.includes('Digital twin')) return 'var(--c-twin)';
+  if (tag.includes('Cloud')) return 'var(--c-cloud)';
+  return 'var(--text-dim)';
+}
+
+function closeModal(e, force) {
+  if (force || (e && e.target === document.getElementById('modal-overlay'))) {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('modal-overlay').classList.remove('open');
+});
+</script>
+</body>
+</html>
